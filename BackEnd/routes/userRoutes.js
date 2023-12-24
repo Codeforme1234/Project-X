@@ -4,6 +4,7 @@ import { Router } from "express";
 import jsonwebtoken from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import User from "../models/userSchema.js";
+import verifyToken from "../authentication/auth.js";
 
 dotenv.config({ path: "./config.env" });
 
@@ -17,10 +18,7 @@ userRoutes.get("/", async (req, res) => {
 
 userRoutes.post("/user/register", async (req, res) => {
 
-    console.log("register route");
-    console.log(req.body);
     const { username, aliasName, password } = req.body;
-    console.log(username, aliasName, password);
 
     try {
         const findUser = await User.findOne({ username: username });
@@ -43,9 +41,10 @@ userRoutes.post("/user/register", async (req, res) => {
 
 userRoutes.post("/user/login", async (req, res) => {
 
-    const { username, password } = req.body;
-
     try {
+
+        const { username, password } = req.body;
+
         const findUser = await User.findOne({ username: username });
 
         if (findUser) {
@@ -85,33 +84,34 @@ userRoutes.post('/user/create-poll', async (req, res) => {
 
     try {
 
-        console.log(req.body);
-        const token = req.body.cookieValue;
+        const cookieValue = req.body.cookieValue;
 
-        const verifyToken = jsonwebtoken.verify(token, process.env.SECRET_KEY);
+        const result = await verifyToken(cookieValue);
 
-        const rootUser = await User.findOne({ _id: verifyToken._id, "tokens.token": token });
+        if (result.success) {
 
-        if (!rootUser) { throw new Error("User Not Found") }
+            const rootUser = result.user;
+            const { question, options } = req.body.pollData;
 
-        const { question, options } = req.body.pollData;
+            if (!question || !options || options.length < 2) {
+                return res.status(400).json({ error: 'Invalid poll data' });
+            }
 
-        if (!question || !options || options.length < 2) {
-            return res.status(400).json({ error: 'Invalid poll data' });
+            const newPoll = {
+                creator: rootUser.aliasName,
+                question,
+                options: options.map((optionText) => ({ optionText })),
+            };
+
+            rootUser.polls.push(newPoll);
+
+            await rootUser.save();
+
+            return res.status(201).json({ message: "Poll created Successfully" })
+
+        } else {
+            throw new Error("Login First")
         }
-
-        console.log(rootUser);
-        const newPoll = {
-            creator: rootUser.aliasName,
-            question,
-            options: options.map((optionText) => ({ optionText })),
-        };
-
-        rootUser.polls.push(newPoll);
-
-        await rootUser.save();
-
-        return res.status(201).json({ message: "Poll created Successfully" })
 
     } catch (error) {
         console.log(error);
@@ -122,10 +122,10 @@ userRoutes.get('/user/timeline', async (req, res) => {
     try {
         // Fetch all polls from all users
         const allPolls = await User.find({}, 'polls');
-        
+
         // Flatten the polls array
         const flattenedPolls = allPolls.flatMap((user) => user.polls);
-        
+
         // Get the username from the request query
         const username = req.query.username;
 
@@ -144,7 +144,7 @@ userRoutes.get('/user/timeline', async (req, res) => {
             const hasVoted = selectedOptions.length > 0;
 
             return {
-                _id:poll._id,
+                _id: poll._id,
                 creator: poll.creator,
                 question: poll.question,
                 options: optionsWithSelection,
@@ -152,13 +152,7 @@ userRoutes.get('/user/timeline', async (req, res) => {
                 votedUserCount: poll.votedUserCount,
             };
         });
-        pollsWithSelection.forEach(element => {
-            console.log(element);
-            element.options.forEach((option)=>{
-                console.log(option);
-            })
-        });
-        console.log(pollsWithSelection);
+
         res.status(200).json(pollsWithSelection);
     } catch (error) {
         console.error(error);
@@ -170,29 +164,29 @@ userRoutes.get('/user/timeline', async (req, res) => {
 
 userRoutes.post('/user/vote', async (req, res) => {
 
-    console.log(req.body);
-    console.log("Chipi chipi");
-    const { pollId, optionIndex, username } = req.body;
-
     try {
-        // Find the user
-        const user = await User.findOne({ username: username });
-        if (!user) {
-            return res.status(401).json({ error: 'User not found' });
+
+        const { pollId, optionIndex, cookieValue } = req.body;
+        let username;
+
+        const result = await verifyToken(cookieValue);
+
+        if (result.success) {
+            username = result.user.username;
+        } else {
+            return res.status(401).json({ error: "Login First" });
         }
 
         // Find the poll globally across all users
-        const poll = await User.findOne({ 'polls._id': pollId }, 'polls.$');
+        const poll = await User.findOne({ "polls._id": pollId }, "polls.$");
         if (!poll) {
-            return res.status(401).json({ error: 'Poll not found' });
+            return res.status(401).json({ error: "Poll not found" });
         }
 
         // Check if the user has already voted
         if (poll.polls[0].votedUsers.some((votedUser) => votedUser.votedUser === username)) {
-            return res.status(400).json({ error: 'User already voted on this poll' });
+            return res.status(400).json({ error: "User already voted on this poll" });
         }
-
-        console.log("user not voted ");
 
         const updateQuery = {
             $inc: {
