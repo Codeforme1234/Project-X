@@ -13,8 +13,8 @@ const userRoutes = Router();
 userRoutes.use(cookieParser());
 
 userRoutes.get("/", async (req, res) => {
-    const date = Date();
-    res.send(date);
+    console.log("Hello");
+    res.send("Hey, How are you!!!");
 })
 
 userRoutes.post("/user/register", async (req, res) => {
