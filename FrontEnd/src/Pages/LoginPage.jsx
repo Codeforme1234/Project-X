@@ -19,24 +19,24 @@ function LoginPage() {
         <form onSubmit={handleLogin} className="login-form">
           <h2 className="login-header">Sign in</h2>
           <div className="input-group">
-            <input 
-              type="text" 
-              id="username" 
+            <input
+              type="text"
+              id="username"
               name="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              required 
+              required
             />
             <label htmlFor="username">Username</label>
           </div>
           <div className="input-group">
-            <input 
-              type="password" 
-              id="password" 
+            <input
+              type="password"
+              id="password"
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required 
+              required
             />
             <label htmlFor="password">Password</label>
           </div>
