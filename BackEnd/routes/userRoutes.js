@@ -64,7 +64,7 @@ userRoutes.post("/user/login", async (req, res) => {
                 });
 
                 await findUser.save();
-                res.send("User Logged Successfully");
+
                 return res.json({ message: "User Login Successfull!!!" });
 
             } else {
@@ -80,7 +80,28 @@ userRoutes.post("/user/login", async (req, res) => {
 
 });
 
-userRoutes.post('/user/create-poll', async (req, res) => {
+userRoutes.get("/user/getData/:cookieValue", async (req, res) => {
+
+    try {
+
+        const cookieValue = req.params.cookieValue;
+
+        const result = await verifyToken(cookieValue);
+
+        if (result.success) {
+            res.send(result.user)
+        } else {
+            throw new Error("Route User Not Found");
+        }
+
+    } catch (error) {
+        res.status(401).send("Unauthorized: No token Provided");
+        console.log(error);
+    }
+
+});
+
+userRoutes.post("/user/create-poll", async (req, res) => {
 
     try {
 
