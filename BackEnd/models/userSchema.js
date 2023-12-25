@@ -29,6 +29,10 @@ const userSchema = new Schema({
                 type: String,
                 required: true
             },
+            createdOn: {
+                type: Date,
+                default: Date.now
+            },
             question: {
                 type: String,
                 required: true

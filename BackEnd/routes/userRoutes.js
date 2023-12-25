@@ -13,7 +13,8 @@ const userRoutes = Router();
 userRoutes.use(cookieParser());
 
 userRoutes.get("/", async (req, res) => {
-    res.send("Home Route");
+    const date = Date();
+    res.send(date);
 })
 
 userRoutes.post("/user/register", async (req, res) => {
@@ -147,6 +148,14 @@ userRoutes.get('/user/timeline', async (req, res) => {
         // Flatten the polls array
         const flattenedPolls = allPolls.flatMap((user) => user.polls);
 
+        if(req.query.type === "latest"){
+            // Sort the flattened polls array by the 'createdOn' field in descending order
+            flattenedPolls.sort((a, b) => b.createdOn - a.createdOn);
+        }else{
+            // Sort the flattened polls array by the 'votedUserCount' field in descending order
+            flattenedPolls.sort((a, b) => b.votedUserCount - a.votedUserCount);
+        }
+
         // Get the username from the request query
         const username = req.query.username;
 
@@ -166,6 +175,7 @@ userRoutes.get('/user/timeline', async (req, res) => {
 
             return {
                 _id: poll._id,
+                createdOn: poll.createdOn,
                 creator: poll.creator,
                 question: poll.question,
                 options: optionsWithSelection,
