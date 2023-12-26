@@ -13,8 +13,8 @@ const userRoutes = Router();
 userRoutes.use(cookieParser());
 
 userRoutes.get("/", async (req, res) => {
-    console.log("Hello");
-    res.send("Hey, How are you!!!");
+    const date = Date();
+    res.send(date);
 })
 
 userRoutes.post("/user/register", async (req, res) => {
@@ -113,7 +113,7 @@ userRoutes.post("/user/create-poll", async (req, res) => {
         if (result.success) {
 
             const rootUser = result.user;
-            const { question, options } = req.body.pollData;
+            const { deletingOn, question, options } = req.body.pollData;
 
             if (!question || !options || options.length < 2) {
                 return res.status(400).json({ error: 'Invalid poll data' });
@@ -121,6 +121,7 @@ userRoutes.post("/user/create-poll", async (req, res) => {
 
             const newPoll = {
                 creator: rootUser.aliasName,
+                deletingOn: deletingOn || Date.now() + 30 * 24 * 60 * 60 * 1000,
                 question,
                 options: options.map((optionText) => ({ optionText })),
             };
@@ -142,25 +143,41 @@ userRoutes.post("/user/create-poll", async (req, res) => {
 
 userRoutes.get('/user/timeline', async (req, res) => {
     try {
+
+        // Get the username from the request query
+        const cookieValue = req.query.cookieValue;
+
+        const result = await verifyToken(cookieValue);
+        let username;
+
+        if (result.success) {
+            username = result.user.username;
+        } else {
+            throw new Error("Login First")
+        }
+
         // Fetch all polls from all users
         const allPolls = await User.find({}, 'polls');
 
         // Flatten the polls array
         const flattenedPolls = allPolls.flatMap((user) => user.polls);
 
-        if(req.query.type === "latest"){
+        // Exclude polls where Date.now() > deletingOn
+        const validPolls = flattenedPolls.filter((poll) => {
+            // If deletingOn is not set, or if Date.now() is before deletingOn
+            return !poll.deletingOn || Date.now() <= new Date(poll.deletingOn).getTime();
+        });
+
+        if (req.query.type === "latest") {
             // Sort the flattened polls array by the 'createdOn' field in descending order
-            flattenedPolls.sort((a, b) => b.createdOn - a.createdOn);
-        }else{
+            validPolls.sort((a, b) => b.createdOn - a.createdOn);
+        } else {
             // Sort the flattened polls array by the 'votedUserCount' field in descending order
-            flattenedPolls.sort((a, b) => b.votedUserCount - a.votedUserCount);
+            validPolls.sort((a, b) => b.votedUserCount - a.votedUserCount);
         }
 
-        // Get the username from the request query
-        const username = req.query.username;
-
         // Iterate through polls and options, set 'selected' and 'hasVoted' fields
-        const pollsWithSelection = flattenedPolls.map((poll) => {
+        const pollsWithSelection = validPolls.map((poll) => {
             const selectedOptions = poll.votedUsers
                 .filter((votedUser) => votedUser.votedUser === username)
                 .map((votedUser) => votedUser.option);

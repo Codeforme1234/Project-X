@@ -33,6 +33,9 @@ const userSchema = new Schema({
                 type: Date,
                 default: Date.now
             },
+            deletingOn: {
+                type: Date
+            },
             question: {
                 type: String,
                 required: true
@@ -58,7 +61,8 @@ const userSchema = new Schema({
                 }
             ],
             votedUserCount: {
-                type: Number
+                type: Number,
+                default:0
             }
         }
     ]
