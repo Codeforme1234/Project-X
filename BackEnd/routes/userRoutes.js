@@ -141,6 +141,44 @@ userRoutes.post("/user/create-poll", async (req, res) => {
     }
 });
 
+userRoutes.get('/user/myPolls', async (req, res) => {
+    try {
+        const cookieValue = req.query.cookieValue;
+
+        const result = await verifyToken(cookieValue);
+        let userId;
+
+        if (result.success) {
+            userId = result.user._id;
+        } else {
+            throw new Error("Login First");
+        }
+
+        // Find the user by ID and retrieve their polls
+        const user = await User.findById(userId, 'polls');
+
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const userPolls = user.polls.map((poll) => ({
+            _id: poll._id,
+            createdOn: poll.createdOn,
+            question: poll.question,
+            options: poll.options,
+            votedUserCount: poll.votedUserCount,
+        }));
+
+        userPolls.sort((a, b) => b.createdOn - a.createdOn);
+        console.log(userPolls);
+        res.status(200).json(userPolls);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
 userRoutes.get('/user/timeline', async (req, res) => {
     try {
 
@@ -207,8 +245,6 @@ userRoutes.get('/user/timeline', async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
-
 
 userRoutes.post('/user/vote', async (req, res) => {
 
