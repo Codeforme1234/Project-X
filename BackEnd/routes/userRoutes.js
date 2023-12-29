@@ -141,6 +141,34 @@ userRoutes.post("/user/create-poll", async (req, res) => {
     }
 });
 
+userRoutes.post("/user/deletePoll", async (req, res) => {
+    try {
+        const cookieValue = req.query.cookieValue;
+        const result = await verifyToken(cookieValue);
+
+        if (result.success) {
+            const userId = result.user._id;
+            const pollId = req.query.pollId;
+
+            // Ensure that the user is the creator of the poll before deleting
+            const poll = await User.findOne({ _id: userId, 'polls._id': pollId });
+            if (!poll) {
+                return res.status(404).json({ error: 'Poll not found or unauthorized' });
+            }
+
+            // Pull the poll from the user's polls array
+            await User.updateOne({ _id: userId }, { $pull: { polls: { _id: pollId } } });
+
+            res.status(200).json({ message: "Poll deleted successfully" });
+        } else {
+            throw new Error("Login First");
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 userRoutes.get('/user/myPolls', async (req, res) => {
     try {
         const cookieValue = req.query.cookieValue;
@@ -170,7 +198,6 @@ userRoutes.get('/user/myPolls', async (req, res) => {
         }));
 
         userPolls.sort((a, b) => b.createdOn - a.createdOn);
-        console.log(userPolls);
         res.status(200).json(userPolls);
     } catch (error) {
         console.error(error);
